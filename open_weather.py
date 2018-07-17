@@ -58,7 +58,8 @@ def getForcast(url):
 
 		jsToday =json.dumps(todaysForcast);
 		#jsTomor =json.dumps(tomorrForcast);
-
+		tmp_swim = json.dumps({"tmp":166}) ; 
+		client.publish("/e-monitor/swimpool/tmp/",tmp_swim) ;
 		client.publish(Wheath_ext_today,jsToday);
 		#client.publish(Wheath_ext_tomor,jsTomor);
 
@@ -102,8 +103,6 @@ def main():
 if __name__ == '__main__':
 	main()
 	exit(0);
-
-
 
 
 

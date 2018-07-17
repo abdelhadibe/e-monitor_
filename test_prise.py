@@ -21,8 +21,8 @@ client.connect("localhost",1883,60)
 client.on_message = on_message 
 client.loop() 
 
-prise_on  = {"command": "switchlight", "idx": 27, "switchcmd": "On" }
-prise_off = {"command": "switchlight", "idx": 27, "switchcmd": "Off" }
+prise_on  = {"command": "switchlight", "idx": 41, "switchcmd": "On" }
+prise_off = {"command": "switchlight", "idx": 41, "switchcmd": "Off" }
 
 
 

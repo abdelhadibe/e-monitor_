@@ -4,14 +4,31 @@ import time
 import datetime 
 import paho.mqtt.client as mqtt 
 from mqtt_client import MQTTclient
+from config import * 
 
 
 host = "localhost"
 port =  1883 
 
+domoticzIn_topic = "domoticz/in"
 weather_topic = "/e-monitor/ext/today/" ; 
 mode_topic  = "/e-monitor/mode/" ;
 consumption_topic = "/e-monitor/consumption/"; 
+swimPool_topic= "/e-monitor/swimpool/tmp/"
+
+prise_on  = {"command": "switchlight", "idx": 41, "switchcmd": "On" }
+prise_off = {"command": "switchlight", "idx": 41, "switchcmd": "Off" }
+
+jsPrise_1_on  = json.dumps(prise_on)
+jsPrise_1_off = json.dumps(prise_off)
+
+cmd_on  = json.dumps({"cmd":"on"});
+cmd_off = json.dumps({"cmd":"off"});
+
+#Switch Idx 
+autoMode_idx = 34 ;
+plug_1 = 41;  
+
 
 
 left_margin = time.asctime( time.localtime(time.time()) )+" : "
@@ -22,12 +39,14 @@ def log_time():
     log = dt.strftime("%H:%M:%S : ")
     return log ; 
 
+
 class monitoring(object):
     """docstring for monitoring"""
     _mqttClient = None ; 
     _auto_mode = False ;  
     _manu_mode = False ; 
     _tThread  = None ; 
+    _scheduler = None ; 
     _current_tmp = 0 ; 
     _todayTmp_max = 0;
     _todayTmp_min =0 ; 
@@ -45,6 +64,25 @@ class monitoring(object):
     _photoVol_prodution = 0; 
     _stopCond = None  ;
 
+    	
+    def sendSwitch_cmd(self, idx, cmd):
+		try: 
+			left_margin = log_time();
+			data = dict();
+			data['command'] = "switchlight"; 
+			data['idx'] = idx ; 
+			if( cmd==1):
+				data['switchcmd'] = "On"; 
+			elif(cmd==0):
+				data['switchcmd'] = "Off"; 
+			json_data = json.dumps(data);
+			print json_data ;
+		except Exception as ex : 
+			print("error to switch cmd "); 
+		else :
+			self._mqttClient.publish(domoticzIn_topic, json_data);
+			print(left_margin+data['switchcmd']+"-cmd sended to switch idx:"+str(idx)); 
+
     def OnMsg_mode(self, client, userdata, msg):
         try:
             left_margin = log_time()
@@ -61,10 +99,22 @@ class monitoring(object):
                 self._auto_mode = False ;
                 print(left_margin+"On message - mode : Manual mode activated = "+ str(self._manu_mode)+right_margin) ; 
 
+    def OnMsg_scheduling(self, client, userdata, msg):
+    	try : 
+    		left_margin = log_time() ; 
+    	except Exception as ex : 
+    		print(left_margin+"Error loading json payload : "+ str(ex)+right_margin ); 
+    	else: 
+    		pass ; 
 
 
     def on_message(self, client, userdata, msg):
         print("New message on " + msg.topic + " : " + str(msg.payload) + "\n");
+
+    def on_connect(self, client,userdata ,flags, rc):
+		if rc==0: 
+			left_margin = time.asctime( time.localtime(time.time()) )+" : "
+			print(left_margin+"Connected to broker"+right_margin);
 
 
     def OnMsg_consumption(self, client, userdata, msg):
@@ -83,12 +133,12 @@ class monitoring(object):
 
     def OnMsg_swimPool(self, client, userdata, msg):
         try : 
-            left_margin = time.asctime( time.localtime(time.time()) )+" : "
-            payload = json.loads(msg.payloads.decode('utf-8'));
+            left_margin = log_time();
+            payload =json.loads(msg.payload.decode('utf-8'))
+
         except Exception as ex : 
-            print("error loading json frame"); 
+            print(left_margin+"error loading json frame On swimPool msg"); 
         else :
-            left_margin = time.asctime( time.localtime(time.time()) )+" : "
             self._swimPool_tmp = payload['tmp'];
             print(left_margin+"On message - swimPool : Temperature = "+str(self._swimPool_tmp)+right_margin) ; 
 
@@ -103,7 +153,7 @@ class monitoring(object):
         except Exception as ex : 
             print(left_margin+"exception decoding json payload : "+ str(ex)+right_margin)
         else: 
-            print (left_margin+"On Message weather")
+            print (left_margin+"On Message weather .....")
             self._current_tmp    = payload['today']['tmp'];
             self._todayTmp_max   = payload['today']['tmp_max']
             self._todayTmp_min   = payload['today']['tmp_min']
@@ -129,12 +179,14 @@ class monitoring(object):
         # Mqtt Client
         #
         self._mqttClient = mqtt.Client()
+        self._mqttClient.on_connect = self.on_connect ; 
         self._mqttClient.message_callback_add(weather_topic, self.onMsg_weather);
         self._mqttClient.message_callback_add(mode_topic,self.OnMsg_mode) ; 
+        self._mqttClient.message_callback_add(swimPool_topic,self.OnMsg_swimPool) ; 
 
         self._mqttClient.connect("localhost", 1883, 60)
-        self._mqttClient.subscribe("/e-monitor/#") ;
-        print (left_margin+"Connected To broker "+right_margin)
+        self._mqttClient.subscribe("/e-monitor/#");
+        #self.sendSwitch_cmd(autoMode_idx,"Off");
 
     def runMonitoring(self):
         print(left_margin+"Energy Monitor starting"+right_margin) ; 
@@ -145,14 +197,22 @@ class monitoring(object):
 
     def global_monitoring(self):
         print(left_margin+"Monitoring..."+right_margin)
-        """
-        i = 0 ; 
-        while i<50 : 
-            print(str(i)+"--"+str(self._current_tmp)) ;
-            #self._mqttClient.subscribe(weather_topic) ;
-            #print i ; 
-            i = i+ 1 ; 
-        """
+        while True : 
+        	
+        	self.sendSwitch_cmd(41,1);
+        	time.sleep(2.0);
+        	self.sendSwitch_cmd(41,0);
+        	"""
+	        # test mode 
+	        if (self._auto_mode == True ) : 
+				self._mqttClient.publish("/e-monitor/plug/",cmd_on) ; 
+				time.sleep(2);
+				self._mqttClient.publish("/e-monitor/plug/",cmd_off) ; 
+			"""
+
+
+	        	
+
 def main(): 
     moni = monitoring(); 
     moni.runMonitoring() ;
