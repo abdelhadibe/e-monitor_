@@ -1,6 +1,8 @@
 import threading 
 import json 
 import time 
+import signal 
+import sys 
 import datetime 
 import paho.mqtt.client as mqtt 
 from mqtt_client import MQTTclient
@@ -16,8 +18,8 @@ mode_topic  = "/e-monitor/mode/" ;
 consumption_topic = "/e-monitor/consumption/"; 
 swimPool_topic= "/e-monitor/swimpool/tmp/"
 
-prise_on  = {"command": "switchlight", "idx": 41, "switchcmd": "On" }
-prise_off = {"command": "switchlight", "idx": 41, "switchcmd": "Off" }
+prise_on  = {"command": "switchlight", "idx": 45, "switchcmd": "On" }
+prise_off = {"command": "switchlight", "idx": 45, "switchcmd": "Off" }
 
 jsPrise_1_on  = json.dumps(prise_on)
 jsPrise_1_off = json.dumps(prise_off)
@@ -42,6 +44,7 @@ def log_time():
 
 class monitoring(object):
     """docstring for monitoring"""
+    _shutdown = None ; 
     _mqttClient = None ; 
     _auto_mode = False ;  
     _manu_mode = False ; 
@@ -71,12 +74,9 @@ class monitoring(object):
 			data = dict();
 			data['command'] = "switchlight"; 
 			data['idx'] = idx ; 
-			if( cmd==1):
-				data['switchcmd'] = "On"; 
-			elif(cmd==0):
-				data['switchcmd'] = "Off"; 
+			data['switchcmd'] = cmd; 
 			json_data = json.dumps(data);
-			print json_data ;
+			#print json_data ;
 		except Exception as ex : 
 			print("error to switch cmd "); 
 		else :
@@ -175,6 +175,7 @@ class monitoring(object):
 
         super(monitoring, self).__init__()
         self._manu_mode = False ;
+        self._auto_mode = False
         left_margin = time.asctime( time.localtime(time.time()) )+" : "
         # Mqtt Client
         #
@@ -186,40 +187,39 @@ class monitoring(object):
 
         self._mqttClient.connect("localhost", 1883, 60)
         self._mqttClient.subscribe("/e-monitor/#");
-        #self.sendSwitch_cmd(autoMode_idx,"Off");
 
     def runMonitoring(self):
         print(left_margin+"Energy Monitor starting"+right_margin) ; 
         self._tThread = threading.Thread(target = self.global_monitoring) ; 
         self._tThread.daemon = True ; 
         self._tThread.start() ; 
-        self._mqttClient.loop_start(); 
+        self._mqttClient.loop_start();
+
+    def stopMonitoring(self):
+    	self._shutdown = True ; 
 
     def global_monitoring(self):
         print(left_margin+"Monitoring..."+right_margin)
+        
+        
         while True : 
-        	
-        	self.sendSwitch_cmd(41,1);
-        	time.sleep(2.0);
-        	self.sendSwitch_cmd(41,0);
-        	"""
+     
 	        # test mode 
 	        if (self._auto_mode == True ) : 
-				self._mqttClient.publish("/e-monitor/plug/",cmd_on) ; 
-				time.sleep(2);
-				self._mqttClient.publish("/e-monitor/plug/",cmd_off) ; 
-			"""
-
-
-	        	
+	        	self.sendSwitch_cmd(1,"On");
+	        	time.sleep(20);
+	        	self.sendSwitch_cmd(1,"Off");
+	        	time.sleep(20);
 
 def main(): 
-    moni = monitoring(); 
-    moni.runMonitoring() ;
-    #moni.onMsg_weather(); 
+	global shutdown;
+	global energy_monitoring ; 
 
-    while True : 
-        pass ;
+	energy_monitoring = monitoring();
+	energy_monitoring.runMonitoring();
+	
+	while True: 
+		pass ;
      #   sys.exit(0); 
 
 if __name__ == '__main__':

@@ -11,8 +11,8 @@ plug_topic = "/e-monitor/plug/";
 
 
 
-prise_on  = {"command": "switchlight", "idx": 41, "switchcmd": "On" }
-prise_off = {"command": "switchlight", "idx": 41, "switchcmd": "Off" }
+prise_on  = {"command": "switchlight", "idx": 44, "switchcmd": "On" }
+prise_off = {"command": "switchlight", "idx": 44, "switchcmd": "Off" }
 
 
 
@@ -25,7 +25,24 @@ class mqtt_domoticz(object):
 
 	def publishToDomotiz(self,topic,data):
 		client.publish(topic,data)
-	
+
+	def sendSwitch_cmd(self, idx, cmd):
+		try: 
+			data = dict();
+			data['command'] = "switchlight"; 
+			data['idx'] = idx ; 
+			if( cmd==1):
+				data['switchcmd'] = "On"; 
+			elif(cmd==0):
+				data['switchcmd'] = "Off"; 
+			json_data = json.dumps(data);
+			#print json_data ;
+		except Exception as ex : 
+			print("error to switch cmd "); 
+		else :
+			self._mqttc.publish(domoticzIn, json_data);
+			print(data['switchcmd']+"-cmd sended to switch idx:"+str(idx)); 
+	"""
 	def OnMsg_mode(self, client, userdata, msg):
 		try:
 			payload = json.loads(msg.payload.decode('utf-8'))
@@ -36,7 +53,7 @@ class mqtt_domoticz(object):
 				self._mqttc.publish(domoticzIn,jsPrise_1_on);
 			elif (payload['cmd'] == "off"):
 				self._mqttc.publish(domoticzIn,jsPrise_1_off);
-
+	"""
 
 	def on_message(self,client, userdata, msg):
 		try :
@@ -46,18 +63,21 @@ class mqtt_domoticz(object):
 		except Exception as ex: 
 			print ("Error");
 		else : 
-			if(payload['idx']== 43) : 
+			if(payload['idx']== 6) : 
 				jsframe = dict() ; 
 				if(payload['nvalue']== 1):
 					jsframe['mode'] = "auto" ; 
 					self._mqttc.publish(mode_topic,json.dumps(jsframe,ensure_ascii=False)); 
 					self._mqttc.publish(domoticzIn,jsPrise_1_on);
+					self.sendSwitch_cmd(7,1);
 					print ("On cmd") ; 
-				else : 
+				else :
 					jsframe['mode'] = "manual" ; 
 					self._mqttc.publish(mode_topic,json.dumps(jsframe,ensure_ascii=False)); 
 					self._mqttc.publish(domoticzIn,jsPrise_1_off);
+					self.sendSwitch_cmd(7,0);
 					print ("Off cmd") ; 
+			"""
 			if(payload['idx']== 41) : 
 				jsframe = dict() ; 
 				if(payload['nvalue']== 1):
@@ -66,7 +86,7 @@ class mqtt_domoticz(object):
 				elif(payload['nvalue']== 0):
 					jsframe['value'] = 0 ; 
 					self._mqttc.publish(plug_topic,json.dumps(jsframe,ensure_ascii=False)); 
-
+			"""
 
 
 
@@ -77,7 +97,7 @@ class mqtt_domoticz(object):
 	
 		self._mqttc= mqtt.Client() ; 
 		self._mqttc.on_message = self.on_message ; 
-		self._mqttc.message_callback_add(plug_topic, self.OnMsg_mode);
+		#self._mqttc.message_callback_add(plug_topic, self.OnMsg_mode);
 		self._mqttc.connect("localhost",1883,60); 
 		#self._mqttc.subscribe("/e-monitor/#");
 		self._mqttc.subscribe(domoticzOut) ; 

@@ -21,8 +21,8 @@ client.connect("localhost",1883,60)
 client.on_message = on_message 
 client.loop() 
 
-prise_on  = {"command": "switchlight", "idx": 41, "switchcmd": "On" }
-prise_off = {"command": "switchlight", "idx": 41, "switchcmd": "Off" }
+prise_on  = {"command": "switchlight", "idx": 45, "switchcmd": "On" }
+prise_off = {"command": "switchlight", "idx": 45, "switchcmd": "Off" }
 
 
 
@@ -39,7 +39,8 @@ jsPrise_1_off = json.dumps(prise_off)
 
 while True : 
 	publishToDomotiz(domoticzIn,jsPrise_1_on) ; 
+	print("On");
 	time.sleep(2.0) ; 
 	publishToDomotiz(domoticzIn,jsPrise_1_off) ; 
 	time.sleep(2.0) ;
-	client.subscribe(domoticzOut)
+	print("Off");
