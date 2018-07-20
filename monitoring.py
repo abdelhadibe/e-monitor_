@@ -12,8 +12,10 @@ from config import *
 host = "localhost"
 port =  1883 
 
-domoticzIn_topic = "domoticz/in"
-weather_topic = "/e-monitor/ext/today/" ; 
+domoticzIn_topic = "domoticz/in";
+weather_topic = "/e-monitor/ext/today/" ;
+forecast_scenari_topic = "/e-monitor/scenario/forecast/" ;
+autoConsommation_scenari_topic = "/e-monitor/scenario/autoconsommation/";
 mode_topic  = "/e-monitor/mode/" ;
 consumption_topic = "/e-monitor/consumption/"; 
 swimPool_topic= "/e-monitor/swimpool/tmp/"
@@ -47,7 +49,7 @@ class monitoring(object):
     _shutdown = None ; 
     _mqttClient = None ; 
     _auto_mode = False ;  
-    _manu_mode = False ; 
+    _manu_mode = False ;
     _tThread  = None ; 
     _scheduler = None ; 
     _current_tmp = 0 ; 
@@ -66,17 +68,47 @@ class monitoring(object):
     _general_consum = 0 ; 
     _photoVol_prodution = 0; 
     _stopCond = None  ;
+    _autoConsommation_scenari = False ; 
+    _weatherForcast_scenari = False ;
 
-    	
+
+
+    def OnMsg_autoconsommation(self, client, userdata, msg):
+    	try: 
+    		log = log_time(); 
+    		payload = json.loads(msg.payload.decode('utf-8'));
+    	except Exception as ex:
+    		print(log+"exception decoding json payload on OnMsg_autoconsommation: "+ str(ex)+right_margin);
+    	else: 
+    		if(payload['autoconsommation'] == "On"):
+    			self._autoConsommation_scenari = True;
+    			print(log+"OnMsg autoconsommation : autoconsommation scenari enabled \n");
+    		elif(payload['autoconsommation'] == "Off"):
+    			self._autoConsommation_scenari = False ;
+    			print(log+"OnMsg autoconsommation : autoconsommation scenari disabled \n");
+
+    def OnMsg_weatherforecast(self, client, userdata, msg):
+    	try: 
+    		log = log_time(); 
+    		payload = json.loads(msg.payload.decode('utf-8'));
+    	except Exception as ex:
+    		print(log+"exception decoding json payload on OnMsg_autoconsommation: "+ str(ex)+right_margin);
+    	else: 
+    		if(payload['autoconsommation'] == "On"):
+    			self._autoConsommation_scenari = True;
+    			print(log+"OnMsg autoconsommation : autoconsommation scenari enabled \n");
+    		elif(payload['autoconsommation'] == "Off"):
+    			self._autoConsommation_scenari = False ;
+    			print(log+"OnMsg autoconsommation : autoconsommation scenari disabled \n");
+
     def sendSwitch_cmd(self, idx, cmd):
-		try: 
+		try:
 			log = log_time();
 			data = dict();
-			data['command'] = "switchlight"; 
-			data['idx'] = idx ; 
-			data['switchcmd'] = cmd; 
+			data['command'] = "switchlight";
+			data['idx'] = idx;
+			data['switchcmd'] = cmd;
 			json_data = json.dumps(data);
-			#print json_data ;
 		except Exception as ex : 
 			print("error to switch cmd "); 
 		else :
@@ -85,7 +117,7 @@ class monitoring(object):
 
     def OnMsg_mode(self, client, userdata, msg):
         try:
-            log = log_time()
+            log = log_time() ;
             payload = json.loads(msg.payload.decode('utf-8'))
         except Exception as ex:
             print(log+"exception decoding json payload : "+ str(ex)+right_margin)
@@ -98,6 +130,7 @@ class monitoring(object):
                 self._manu_mode = True ;
                 self._auto_mode = False ;
                 print(log+"On message - mode : Manual mode activated = "+ str(self._manu_mode)+right_margin) ; 
+
 
     def OnMsg_scheduling(self, client, userdata, msg):
     	try : 
@@ -168,8 +201,26 @@ class monitoring(object):
             #print self._tomorrowTmp ; 
             #print (log+"In On Weather function"+right_margin) ;
 
-
-
+	def onMsg_auto(self, client, userdata, msg):
+	        log = log_time();
+	        try: 
+	            
+	            payload =json.loads(msg.payload.decode('utf-8'))
+	        except Exception as ex : 
+	            print(log+"exception decoding json payload : "+ str(ex)+right_margin)
+	        else: 
+	            print (log+"On Message weather .....")
+	            self._current_tmp    = payload['today']['tmp'];
+	            self._todayTmp_max   = payload['today']['tmp_max']
+	            self._todayTmp_min   = payload['today']['tmp_min']
+	            self._current_cloud  = payload['today']['cloud'];
+	            self._current_weather= payload['today']['weather']
+	            self._tomorrowTmp    = payload['tomorr']['tmp'];
+	            self._tomorrTmp_max  = payload['tomorr']['tmp_max']
+	            self._tomorrTmp_min  = payload['tomorr']['tmp_min']
+	            self._tomorr_hum     = payload['tomorr']['hum'];
+	            self._tomorr_cloud   = payload['tomorr']['cloud'];
+	            self._current_weather= payload['tomorr']['weather'];
 
     def __init__(self):
 
@@ -178,6 +229,7 @@ class monitoring(object):
         self._manu_mode = False ;
         self._auto_mode = False ; 
         log = log_time();
+        #
         # Mqtt Client
         #
         self._mqttClient = mqtt.Client()
@@ -185,6 +237,9 @@ class monitoring(object):
         self._mqttClient.message_callback_add(weather_topic, self.onMsg_weather);
         self._mqttClient.message_callback_add(mode_topic,self.OnMsg_mode) ; 
         self._mqttClient.message_callback_add(swimPool_topic,self.OnMsg_swimPool) ; 
+        self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_autoconsommation) ;
+        self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_weatherforecast) ;  
+
 
         self._mqttClient.connect("localhost", 1883, 60)
         self._mqttClient.subscribe("/e-monitor/#");
@@ -211,15 +266,13 @@ class monitoring(object):
     	log = log_time() ; 
         print(log+"Monitoring..."+right_margin);
 
-        
-        
         while not self._shutdown: 
-     
+     		
 	        # test mode 
 	        if (self._auto_mode == True ) : 
-	        	self.sendSwitch_cmd(1,"On");
+	        	self.sendSwitch_cmd(waching_machin_idx,"On");
 	        	time.sleep(20);
-	        	self.sendSwitch_cmd(1,"Off");
+	        	self.sendSwitch_cmd(waching_machin_idx,"Off");
 	        	time.sleep(20);
 
 def cntrl_handler(signum, frame):
@@ -245,7 +298,7 @@ def main():
 	signal.signal(signal.SIGINT, cntrl_handler);
 	energy_monitoring = monitoring();
 	energy_monitoring.runMonitoring();
-	
+
 	while not shutdown: 
 		pass ;
 	sys.exit(0); 
