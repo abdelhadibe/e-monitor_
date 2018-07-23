@@ -59,13 +59,13 @@ class EnergyMeter(object):
 		if(metering_type == "consumption"):
 			data_1= json.dumps({ "idx" : voltage_idx, "nvalue" : 0, "svalue" :str(self._voltage_consumption) })
 			data_2= json.dumps({ "idx" : current_idx, "nvalue" : 0, "svalue" :str(self._current_consumption )})
-			data_3= json.dumps({ "idx" : power_idx, "nvalue" : 0, "svalue" :str(self._active_power_consumption );1;2;3;4;5})
+			data_3= json.dumps({ "idx" : power_idx, "nvalue" : 0, "svalue" :str(self._active_power_consumption )+str(";5")})
 			data_4= json.dumps({ "idx" : energy_idx, "nvalue" : 0, "svalue" :str(self._total_active_energy_consumption)})
 		
 		elif(metering_type == "production"):
 			data_1= json.dumps({ "idx" : voltage_idx, "nvalue" : 0, "svalue" :str(self._voltage_production) })
 			data_2= json.dumps({ "idx" : current_idx, "nvalue" : 0, "svalue" :str(self._current_production )})
-			data_3= json.dumps({ "idx" : power_idx, "nvalue" : 0, "svalue" :str(self._active_power_consumption );1;2;3;4;5})
+			data_3= json.dumps({ "idx" : power_idx, "nvalue" : 0, "svalue" :str(self._active_power_consumption )+str(";1;2;3;4;5")})
 			data_4= json.dumps({ "idx" : energy_idx, "nvalue" : 0, "svalue" :str(self._total_active_energy_production)})
 			
 		self._mqttc.publish(domoticzIn_topic,data_1)
@@ -137,7 +137,7 @@ class EnergyMeter(object):
 		while True :
 			self.readEnergy_values();
 			self.publishTo_system();
-			self.publishToDomoticz("consumption",30,35,31,32);
+			self.publishToDomoticz("consumption",30,35,37,32);
 
 			print ("Voltage = {} \n".format(self._voltage_consumption) );
 			print ("Current = {} \n".format(self._current_consumption) );

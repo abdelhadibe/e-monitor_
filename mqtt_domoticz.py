@@ -2,12 +2,14 @@ import time
 import threading
 import paho.mqtt.client as mqtt 
 import json 
+from config import * 
 
 domoticzIn  = "domoticz/in"
 domoticzOut = "domoticz/out"
 
 mode_topic  = "/e-monitor/mode/" ; 
 plug_topic = "/e-monitor/plug/";
+planning_topic = "/e-monitor/planning/";
 
 
 
@@ -15,13 +17,20 @@ prise_on  = {"command": "switchlight", "idx": 44, "switchcmd": "On" }
 prise_off = {"command": "switchlight", "idx": 44, "switchcmd": "Off" }
 
 
+auto_mode_idx = 6 ; 
+waching_machin_idx =  39; 
+water_heating_idx = 14 ; 
+home_heating_idx = 13 ; 
+pool_heating_idx = 40 ;
 
 jsPrise_1_on  = json.dumps(prise_on)
 jsPrise_1_off = json.dumps(prise_off)
 
+
 class mqtt_domoticz(object):
 	_mqttc = None ; 
 	_tThread = None;
+	_jsframe_planning = None ; 
 
 	def publishToDomotiz(self,topic,data):
 		client.publish(topic,data)
@@ -57,36 +66,58 @@ class mqtt_domoticz(object):
 
 	def on_message(self,client, userdata, msg):
 		try :
+			jsframe = dict() ; 
 			print("Message recieved "); 
 			print("New message on " + msg.topic + " : " + str(msg.payload) + "\n");
-			payload = json.loads(msg.payload.decode('utf-8'))
+			payload = json.loads(msg.payload.decode('utf-8'));
 		except Exception as ex: 
-			print ("Error");
-		else : 
-			if(payload['idx']== 6) : 
-				jsframe = dict() ; 
-				if(payload['nvalue']== 1):
+			print ("Error decoding json data"+str(ex));
+
+		else :
+			# Mode  
+			if(payload['idx']== auto_mode_idx) : 
+				
+				if(payload['nvalue'] == 1):
 					jsframe['mode'] = "auto" ; 
 					self._mqttc.publish(mode_topic,json.dumps(jsframe,ensure_ascii=False)); 
-					self._mqttc.publish(domoticzIn,jsPrise_1_on);
-					self.sendSwitch_cmd(7,1);
 					print ("On cmd") ; 
 				else :
 					jsframe['mode'] = "manual" ; 
 					self._mqttc.publish(mode_topic,json.dumps(jsframe,ensure_ascii=False)); 
-					self._mqttc.publish(domoticzIn,jsPrise_1_off);
-					self.sendSwitch_cmd(7,0);
-					print ("Off cmd") ; 
-			"""
-			if(payload['idx']== 41) : 
-				jsframe = dict() ; 
+					print ("Off cmd") ;
+			# Waching machin Plannig
+			elif(payload['idx'] == waching_machin_idx) : 
 				if(payload['nvalue']== 1):
-					jsframe['value'] = 1 ; 
-					self._mqttc.publish(plug_topic,json.dumps(jsframe,ensure_ascii=False)); 
-				elif(payload['nvalue']== 0):
-					jsframe['value'] = 0 ; 
-					self._mqttc.publish(plug_topic,json.dumps(jsframe,ensure_ascii=False)); 
-			"""
+					self._jsframe_planning['waching_machin'] = "True" ; 
+				else:
+					self._jsframe_planning['waching_machin'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 
+			
+			elif(payload['idx'] == water_heating_idx) : 
+				if(payload['nvalue']== 1):
+					self._jsframe_planning['water_heating'] = "True" ; 
+				else:
+					self._jsframe_planning['water_heating'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 
+			
+			elif(payload['idx'] == home_heating_idx) : 
+				if(payload['nvalue']== 1):
+					self._jsframe_planning['home_heating'] = "True" ; 
+				else:
+					self._jsframe_planning['home_heating'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 
+			
+			elif(payload['idx'] == pool_heating_idx) : 
+				if(payload['nvalue']== 1):
+					self._jsframe_planning['pool_heating'] = "True" ; 
+				else:
+					self._jsframe_planning['pool_heating'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 					 
+			
 
 
 
@@ -101,6 +132,13 @@ class mqtt_domoticz(object):
 		self._mqttc.connect("localhost",1883,60); 
 		#self._mqttc.subscribe("/e-monitor/#");
 		self._mqttc.subscribe(domoticzOut) ; 
+		
+		# Plannig initialisation ; 
+		self._jsframe_planning = dict() ; 
+		self._jsframe_planning['waching_machin'] = "True" ; 
+		self._jsframe_planning['water_heating'] = "True" ;
+		self._jsframe_planning['pool_heating'] = "True" ; 
+		self._jsframe_planning['home_heating'] = "True" ;
 		
 
 	def runMqqt_domoritcz(self):

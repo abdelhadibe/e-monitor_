@@ -16,6 +16,7 @@ domoticzIn_topic = "domoticz/in";
 weather_topic = "/e-monitor/ext/today/" ;
 forecast_scenari_topic = "/e-monitor/scenario/forecast/" ;
 autoConsommation_scenari_topic = "/e-monitor/scenario/autoconsommation/";
+planning_topic = "/e-monitor/planning/";
 mode_topic  = "/e-monitor/mode/" ;
 consumption_topic = "/e-monitor/consumption/"; 
 swimPool_topic= "/e-monitor/swimpool/tmp/"
@@ -44,7 +45,7 @@ def log_time():
     return log ; 
 
 
-class monitoring(object):
+class Monitoring(object):
     """docstring for monitoring"""
     _shutdown = None ; 
     _mqttClient = None ; 
@@ -68,17 +69,63 @@ class monitoring(object):
     _general_consum = 0 ; 
     _photoVol_prodution = 0; 
     _stopCond = None  ;
+    ## Scenarios 
     _autoConsommation_scenari = False ; 
     _weatherForcast_scenari = False ;
+    _waching_machin = None ; 
+    _home_heating = None; 
+    _pool_heating = None ; 
+    _water_heating = None; 
+    _waching_machine_planning = False , 
+    _home_heating_planning = False ; 
+    _water_heating_plannig = False ; 
+    _pool_heating_planning = False ; 
 
 
+
+
+    def homeDevice_update(self, device_type, in_planning, start_time, stop_time, priority, power_consumption, achieved):
+    	my_device = dict();
+    	my_device['type'] = device_type ; 
+    	my_device['in_planning'] = in_planning;
+    	my_device['start_time'] = start_time; 
+    	my_device['stop_time'] = stop_time; 
+    	my_device['priority'] = priority ; 
+    	my_device['power_consumption'] = power_consumption ; 
+    	my_device['achieved'] = achieved ; 
+
+    	return my_device ; 
+
+    def OnMsg_devicePlanning(self, client, userdata, msg):
+    	try: 
+    		log = log_time(); 
+    		payload = json.loads(msg.payload.decode('utf-8'));
+    	except Exception as ex:
+    		print(log+"Error decoding json payload on OnMsg_devicePlanning: "+ str(ex)+right_margin);
+    	else: 
+    		self._waching_machine_planning = payload['waching_machin'] ;
+    		self._home_heating_planning = payload['home_heating']; 
+    		self._water_heating_plannig = payload['water_heating']; 
+    		self._pool_heating_planning = payload['pool_heating']; 
+
+
+    		self._waching_machin['in_planning'] = self._waching_machine_planning ; 
+    		self._home_heating['in_planning'] = self._home_heating_planning ; 
+    		self._water_heating['in_planning'] = self._water_heating_plannig ; 
+    		self._pool_heating['in_planning'] = self._pool_heating_planning ; 
+
+    		print "Waching_machin : {} \n".format(self._waching_machin['in_planning']) 
+    		print "Home_heating : {} \n".format(self._home_heating['in_planning'])
+    		print "Water_heating : {} \n".format(self._water_heating['in_planning'])
+    		print "Pool_heating : {} \n".format(self._pool_heating['in_planning'])
+    		print("-----------------------\n")
 
     def OnMsg_autoconsommation(self, client, userdata, msg):
     	try: 
     		log = log_time(); 
     		payload = json.loads(msg.payload.decode('utf-8'));
     	except Exception as ex:
-    		print(log+"exception decoding json payload on OnMsg_autoconsommation: "+ str(ex)+right_margin);
+    		print(log+"Error decoding json payload on OnMsg_autoconsommation: "+ str(ex)+right_margin);
     	else: 
     		if(payload['autoconsommation'] == "On"):
     			self._autoConsommation_scenari = True;
@@ -224,7 +271,7 @@ class monitoring(object):
 
     def __init__(self):
 
-        super(monitoring, self).__init__()
+        super(Monitoring, self).__init__()
         self._shutdown = False ; 
         self._manu_mode = False ;
         self._auto_mode = False ; 
@@ -238,11 +285,29 @@ class monitoring(object):
         self._mqttClient.message_callback_add(mode_topic,self.OnMsg_mode) ; 
         self._mqttClient.message_callback_add(swimPool_topic,self.OnMsg_swimPool) ; 
         self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_autoconsommation) ;
-        self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_weatherforecast) ;  
+        self._mqttClient.message_callback_add(planning_topic,self.OnMsg_devicePlanning) ;  
+
 
 
         self._mqttClient.connect("localhost", 1883, 60)
         self._mqttClient.subscribe("/e-monitor/#");
+
+        # Home device initialisation 
+        self._waching_machin = self.homeDevice_update(12,12,12,12,12,12,12) ;
+        self._home_heating = self.homeDevice_update(12,12,12,12,12,12,12);
+        self._water_heating = self.homeDevice_update(12,12,12,12,12,12,12) ;
+        self._pool_heating = self.homeDevice_update(12,12,12,12,12,12,12);
+
+        #Domoticz Initilisation 
+        self.sendSwitch_cmd(auto_mode_idx,"Off");
+        self.sendSwitch_cmd(waching_machin_idx,"Off"); 
+        self.sendSwitch_cmd(water_heating_idx,"Off");
+        self.sendSwitch_cmd(home_heating_idx,"Off");
+        self.sendSwitch_cmd(pool_heating_idx,"Off");
+
+
+
+    
 
     def runMonitoring(self):
     	log = log_time() ; 
@@ -263,17 +328,20 @@ class monitoring(object):
 
 
     def global_monitoring(self):
-    	log = log_time() ; 
-        print(log+"Monitoring..."+right_margin);
+    	log = log_time();
+    	print(log+"Monitoring..."+right_margin);
 
-        while not self._shutdown: 
-     		
+    	while not self._shutdown:
 	        # test mode 
 	        if (self._auto_mode == True ) : 
-	        	self.sendSwitch_cmd(waching_machin_idx,"On");
+	        	#self.sendSwitch_cmd(waching_machin_idx,"On");
+	        	print("On \n");
 	        	time.sleep(20);
-	        	self.sendSwitch_cmd(waching_machin_idx,"Off");
+	        	#self.sendSwitch_cmd(waching_machin_idx,"Off");
+	        	print("Off \n");
 	        	time.sleep(20);
+
+
 
 def cntrl_handler(signum, frame):
 	global shutdown ;
@@ -296,7 +364,7 @@ def main():
 	
 	shutdown = False ;
 	signal.signal(signal.SIGINT, cntrl_handler);
-	energy_monitoring = monitoring();
+	energy_monitoring = Monitoring();
 	energy_monitoring.runMonitoring();
 
 	while not shutdown: 
