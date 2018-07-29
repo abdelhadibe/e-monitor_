@@ -80,21 +80,60 @@ class Monitoring(object):
     _home_heating_planning = False ; 
     _water_heating_plannig = False ; 
     _pool_heating_planning = False ; 
+    _devices_planner = None; 
+    _consumed_power = 0 ;
+    _remaining_power = 0 ; 
+
+ 
+
+    def update_remaining_time(self, planner):
+        for k,d in planner.items(): 
+            if(d['in_planning'] == True):
+                if(d['is_running'] == True):
+                    d['stop_time'] = datetime.datetime.now() ; 
+                    d['elapsed_time'] = self.get_elapsed_time(d['start_time'], d['stop_time']) ; 
+
+    def device_control(self, planner):
+        for k,d in  planner.items():
+            if (d['elapsed_time'] >= d['time_to_run'] ):
+
+                device_name = d['name'] ; 
+                device['stop_time'] = datetime.datetime.now() ; 
+                self.sendSwitch_cmd(device_name, "Off") ;
 
 
-
-
-    def homeDevice_update(self, device_type, in_planning, start_time, stop_time, priority, power_consumption, achieved):
+    def homeDevice_update(self, device_name, in_planning, start_time, stop_time, priority, power_consumption, achieved):
     	my_device = dict();
-    	my_device['type'] = device_type ; 
+    	my_device['name'] = device_name ; 
     	my_device['in_planning'] = in_planning;
     	my_device['start_time'] = start_time; 
     	my_device['stop_time'] = stop_time; 
+    	my_device['elapsed_time'] = "" ; 
     	my_device['priority'] = priority ; 
     	my_device['power_consumption'] = power_consumption ; 
+    	my_device['energy_consumption'] = 0; 
+    	my_device['energy_consumption_threshold'] = 15 ; 
+    	my_device['power_demande'] = "15" ;
     	my_device['achieved'] = achieved ; 
 
     	return my_device ; 
+
+    def device_search(self, planner, threshold_1, threshold_2) : 
+    	for device in planner : 
+    		if(device['power_demande'] > threshold_1 and device['power_demande'] < threshold_2 ) :
+    			if(device['in_planning'] == "True") : 
+    				device['start_time'] = datetime.datetime.now() ;
+    				return device ; 
+    		else:
+    			return 0 ;  
+
+    def get_elapsed_time(start, stop):
+
+    	start_in_minute =  (start.hour)*60 + (start.minute) + (start.second)/60 ;
+    	stop_in_minute =  (stop.hour)*60 + (stop.minute) + (stop.second)/60 ;
+    	elapsed = stop_in_minute - start_in_minute ; 
+
+    	return elapsed ; 
 
     def OnMsg_devicePlanning(self, client, userdata, msg):
     	try: 
@@ -119,6 +158,7 @@ class Monitoring(object):
     		print "Water_heating : {} \n".format(self._water_heating['in_planning'])
     		print "Pool_heating : {} \n".format(self._pool_heating['in_planning'])
     		print("-----------------------\n")
+
 
     def OnMsg_autoconsommation(self, client, userdata, msg):
     	try: 
@@ -199,16 +239,15 @@ class Monitoring(object):
 
     def OnMsg_consumption(self, client, userdata, msg):
         try:
-            log = log_time()+" : "
+            log = log_time()
             payload = json.loads(msg.payload.decode('utf-8')) ;
         except Exception as ex : 
-            print("error loading json frame"); 
+            print(log+"error loading json frame in OnMsg_comsumption\n"); 
         else:
-            log = time.asctime( time.localtime(time.time()) )+" : "
             self._general_consum = payload['gle_consum'] ; 
             self._photoVol_prodution = payload['pv_produc'] ; 
 
-            print ("On countter Msg"); 
+            print (log+"On counter Msg \n"); 
     
 
     def OnMsg_swimPool(self, client, userdata, msg):
@@ -275,15 +314,17 @@ class Monitoring(object):
         self._shutdown = False ; 
         self._manu_mode = False ;
         self._auto_mode = False ; 
+        self._devices_planner = dict() ; 
         log = log_time();
-        #
+        
         # Mqtt Client
-        #
+        
         self._mqttClient = mqtt.Client()
         self._mqttClient.on_connect = self.on_connect ; 
         self._mqttClient.message_callback_add(weather_topic, self.onMsg_weather);
-        self._mqttClient.message_callback_add(mode_topic,self.OnMsg_mode) ; 
+        self._mqttClient.message_callback_add(mode_topic, self.OnMsg_mode) ; 
         self._mqttClient.message_callback_add(swimPool_topic,self.OnMsg_swimPool) ; 
+        self._mqttClient.message_callback_add(consumption_topic, self.OnMsg_consumption);
         self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_autoconsommation) ;
         self._mqttClient.message_callback_add(planning_topic,self.OnMsg_devicePlanning) ;  
 
@@ -293,10 +334,16 @@ class Monitoring(object):
         self._mqttClient.subscribe("/e-monitor/#");
 
         # Home device initialisation 
-        self._waching_machin = self.homeDevice_update(12,12,12,12,12,12,12) ;
-        self._home_heating = self.homeDevice_update(12,12,12,12,12,12,12);
-        self._water_heating = self.homeDevice_update(12,12,12,12,12,12,12) ;
-        self._pool_heating = self.homeDevice_update(12,12,12,12,12,12,12);
+        self._waching_machin = self.homeDevice_update(12,"Off",12,12,12,12,12) ;
+        self._home_heating = self.homeDevice_update(12,"Off",12,12,12,12,12);
+        self._water_heating = self.homeDevice_update(12,"Off",12,12,12,12,12) ;
+        self._pool_heating = self.homeDevice_update(12,"Off",12,12,12,12,12);
+
+        # Planner Initialisation ; 
+        self._devices_planner['waching_machin'] = self._waching_machin ; 
+        self._devices_planner['home_heating'] = self._home_heating ; 
+        self._devices_planner['water_heating'] = self._water_heating; 
+        self._devices_planner['pool_heating'] = self._pool_heating ; 
 
         #Domoticz Initilisation 
         self.sendSwitch_cmd(auto_mode_idx,"Off");
@@ -334,13 +381,21 @@ class Monitoring(object):
     	while not self._shutdown:
 	        # test mode 
 	        if (self._auto_mode == True ) : 
-	        	#self.sendSwitch_cmd(waching_machin_idx,"On");
-	        	print("On \n");
-	        	time.sleep(20);
-	        	#self.sendSwitch_cmd(waching_machin_idx,"Off");
-	        	print("Off \n");
-	        	time.sleep(20);
+	        	if(self._photoVol_prodution > pv_production_threshold_1 ):
+					
+					self._remaining_power = self._photoVol_prodution - self._consumed_power ; 
+					if(self._remaining_power > 0 ):
+						device = self.device_search(planner, remaining );
+						if(device != 0):
+							if(device['on_marche'] == False ) :
+								device['start_time'] = datetime.datetime.now() ;
+								device['on_marche'] = True ; 
+								device_name = device['name']; 
+								self.sendSwitch_cmd(device_name, "On") ; 
 
+					self.update_remaining_time(planner);
+					self.device_control(planner) ; 
+	        		
 
 
 def cntrl_handler(signum, frame):
