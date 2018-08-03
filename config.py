@@ -1,11 +1,10 @@
 
 switch_device_idx = dict () ; 
 
-pv_production_threshold_1= 9; 
-swimPool_threshold = 5000
+pv_production_threshold = 1 ; 
 
-threshold_1 = 500; 
-threshold_2 = 600;  
+power_threshold  = 200 ;
+
 
 # Plannning IDx ; 
 auto_mode_idx = 6 ; 
