@@ -15,8 +15,8 @@ port = 1883 ;
 energy_meters_topic = "/e-monitor/energy/";
 domoticzIn_topic = "domoticz/in"
 
-consumption_meter_id = 3 ; 
-production_meter_id = 2; 
+consumption_meter_id = 1 ; 
+production_meter_id = 3; 
 
 def log_time(): 
     dt = datetime.datetime.now() ; 
@@ -40,19 +40,30 @@ class EnergyMeter(object):
 
  
 	def counter_initilisation(self, port, counter_id):
-		log = log_time(); 
-		counter = minimalmodbus.Instrument(port,counter_id);
-		counter.serial.baudrate = 2400
-		counter.serial.bytesize = 8
-		counter.serial.parity = minimalmodbus.serial.PARITY_NONE
-		counter.serial.stopbits = 1
-		counter.serial.timeout = 1
-		counter.debug = False
-		counter.mode = minimalmodbus.MODE_RTU
-		print("Waiting for initialisation...\n");
-		time.sleep(3);
-		print(log+"Counter id = {} initialised \n".format(counter_id));
-		return counter ; 
+		try :
+			log = log_time(); 
+			counter = minimalmodbus.Instrument(port,counter_id);
+			counter.serial.baudrate = 2400
+			counter.serial.bytesize = 8
+			counter.serial.parity = minimalmodbus.serial.PARITY_NONE
+			counter.serial.stopbits = 1
+			counter.serial.timeout = 1
+			counter.debug = False
+			counter.mode = minimalmodbus.MODE_RTU
+			print("Waiting for initialisation...\n");
+			time.sleep(3);
+			print(log+"Counter id = {} initialised \n".format(counter_id));
+			return counter ; 
+		except Exception as ex :
+			print("Error initialisation counter {} \n".format(ex));
+
+	def find_usb_device(self):
+		dev = usb.core.find(find_all=True) ; 
+		for cfg in dev:
+			#sys.stdout.write('Decimal VendorID=' + str(cfg.idVendor) + ' & ProductID=' + str(cfg.idProduct) + '\n')
+			#sys.stdout.write('Hexadecimal VendorID=' + hex(cfg.idVendor) + ' & ProductID=' + hex(cfg.idProduct) + '\n\n')
+			print cfg.idVendor ; 
+
 
 	def publishToDomoticz(self, metering_type, voltage_idx, current_idx, power_idx, energy_idx):
 
@@ -113,17 +124,23 @@ class EnergyMeter(object):
 	def readEnergy_values(self):
 		#Values adress from datasheet
 		# Consumption Values
-		self._voltage_consumption = round(self._consumption_counter.read_float(0, functioncode =4, numberOfRegisters=2), 1);
-		self._current_consumption = round(self._consumption_counter.read_float(6, functioncode =4, numberOfRegisters=2), 1);
-		self._active_power_consumption = round(self._consumption_counter.read_float(12, functioncode =4, numberOfRegisters=2), 1);
-		self._total_active_energy_consumption = round(self._consumption_counter.read_float(342, functioncode =4, numberOfRegisters=2), 4);
-		#PV Productionn values
-		"""
-		self._voltage_production = self._pv_procduction_counter.read_float(0, functioncode =4, numberOfRegisters=2);
-		self._consumption_counter = self._pv_procduction_counter.read_float(6, functioncode =4, numberOfRegisters=2);
-		self._active_power_production = self._pv_procduction_counter.read_float(12, functioncode =4, numberOfRegisters=2);
-		self._total_active_energy_production = self._pv_procduction_counter.read_float(344, functioncode =4, numberOfRegisters=2);
-		"""
+		try:
+			# Consumption values
+			self._voltage_consumption = round(self._consumption_counter.read_float(0, functioncode =4, numberOfRegisters=2), 1);
+			self._current_consumption = round(self._consumption_counter.read_float(6, functioncode =4, numberOfRegisters=2), 1);
+			self._active_power_consumption = round(self._consumption_counter.read_float(12, functioncode =4, numberOfRegisters=2), 1);
+			self._total_active_energy_consumption = round(self._consumption_counter.read_float(342, functioncode =4, numberOfRegisters=2), 4);
+
+			#Photovotaique value 
+			self._voltage_production = self._pv_procduction_counter.read_float(0, functioncode =4, numberOfRegisters=2);
+			self._consumption_counter = self._pv_procduction_counter.read_float(6, functioncode =4, numberOfRegisters=2);
+			self._active_power_production = self._pv_procduction_counter.read_float(12, functioncode =4, numberOfRegisters=2);
+			self._total_active_energy_production = self._pv_procduction_counter.read_float(342, functioncode =4, numberOfRegisters=2);
+
+			
+		except Exception as ex :
+			print("exception in read value {} \n".format(ex));
+		
 		
 	def runEnergy_meter(self):
 		log = log_time();
@@ -144,6 +161,13 @@ class EnergyMeter(object):
 			print ("Power = {} \n".format(self._active_power_consumption )); 
 			print ("Energy = {} \n".format(self._total_active_energy_consumption));
 			print("------------------------------------------------\n")
+
+			print ("Voltage = {} \n".format(self._voltage_production) );
+			print ("Current = {} \n".format(self._current_production) );
+			print ("Power = {} \n".format(self._active_power_production )); 
+			print ("Energy = {} \n".format(self._total_active_energy_production));
+			print("------------------------------------------------\n")
+
 			time.sleep(4);
 
 def main():

@@ -6,6 +6,7 @@ import sys
 import datetime 
 import paho.mqtt.client as mqtt 
 from mqtt_client import MQTTclient
+from influxdb import InfluxDBClient
 from config import * 
 
 
@@ -21,7 +22,20 @@ mode_topic  = "/e-monitor/mode/" ;
 consumption_topic = "/e-monitor/consumption/"; 
 swimPool_topic= "/e-monitor/swimpool/tmp/"
 
-
+def write_to_db(value):
+    dt = datetime.datetime.utcnow().isoformat();
+    json_body = [
+        {
+            "measurement": "test3",
+            "tags": {},
+            "time": dt,
+            "fields": {
+                "power_consumption" : value
+            }
+        }
+    ]
+    #print("Saved Data : {}".format(json_body));
+    self._influxdb_client.write_points(json_body)
 
 
 right_margin = "\n--------------------------"
@@ -36,6 +50,7 @@ class Monitoring(object):
     """docstring for monitoring"""
     _shutdown = None ; 
     _mqttClient = None ; 
+    _influxdb_client = None ;
     _auto_mode = False ;  
     _manu_mode = False ;
     _tThread  = None ; 
@@ -72,7 +87,21 @@ class Monitoring(object):
     _remaining_power = 0 ; 
     _device_state = ""; 
 
- 
+    def write_to_db(self,value):
+
+    	dt = datetime.datetime.utcnow().isoformat();
+    	json_body = [
+    		{
+    			"measurement": "test3",
+    			"tags": {},
+    			"time": dt,
+    			"fields": {
+    			"power_consumption" : value
+    			}
+    		}
+    	]
+    	self._influxdb_client.write_points(json_body)
+	 
 
     def update_remaining_time(self, planner):
         for k,d in planner.items(): 
@@ -94,7 +123,7 @@ class Monitoring(object):
 	                self._consumed_power = self.calculate_consumed_power(self._devices_planner);
 	                self._remaining_power = self._photoVol_prodution - self._consumed_power ; 
 	                print(log+"Consumed Power : {} | remaining Power : {} \n".format(self._consumed_power,self._remaining_power)); 
-
+	"""
     def removed_from_planning_control(self, planner):
     	log = log_time();
     	device = dict() ;
@@ -109,7 +138,7 @@ class Monitoring(object):
 		            	self._consumed_power = self.calculate_consumed_power(self._devices_planner);
 		            	self._remaining_power = self._photoVol_prodution - self._consumed_power ; 
 		            	print(log+"Consumed Power : {} | remaining Power : {} \n".format(self._consumed_power,self._remaining_power)); 
-			
+	"""		
 
 
     def homeDevice_update(self, device_name, in_planning, start_time, time_to_run, priority, power_demande):
@@ -150,6 +179,7 @@ class Monitoring(object):
     	for k,device in planner.items():
     		if (device['is_running'] == "True"):
     			power = power + device['power_demande'] ; 
+    	self.write_to_db(power);
     	return power ; 
     
     def print_running_devices(self, planner):
@@ -159,6 +189,13 @@ class Monitoring(object):
     		if (device['is_running'] == "True"):
     			ch = ch+device['name']+" ";
     	print(log+"running devices : {}".format(ch)) ; 
+
+    def write_log(self, name, power):
+    	log_file = "device_log_"+name+".txt" ;
+    	my_log = open(log_file,"w");
+    	ch = name+","+log_time()+","+str(power);
+    	my_log.write(ch);
+    	 
 
 
 
@@ -374,6 +411,8 @@ class Monitoring(object):
         self._remaining_power =  0; 
 
         log = log_time();
+        self._influxdb_client = InfluxDBClient('localhost', 8086, 'root', 'root', 'first_example')
+
         
         # Mqtt Client
         
@@ -392,10 +431,10 @@ class Monitoring(object):
         self._mqttClient.subscribe("/e-monitor/#");
 
         # Home device initialisation 
-        self._waching_machin = self.homeDevice_update("waching_machin","False","",2,1,2000);
-        self._home_heating = self.homeDevice_update("home_heating","False","",1,1,200);
-        self._water_heating = self.homeDevice_update("water_heating","False","",2,1,1500);
-        self._pool_heating = self.homeDevice_update("pool_heating","False","",1,1,1000);
+        self._waching_machin = self.homeDevice_update("waching_machin","False","",90,1,2000);
+        self._home_heating = self.homeDevice_update("home_heating","False","",30,1,2000);
+        self._water_heating = self.homeDevice_update("water_heating","False","",30,1,1500);
+        self._pool_heating = self.homeDevice_update("pool_heating","False","",30,1,2500);
 
         # Planner Initialisation ; 
         self._devices_planner['waching_machin'] = self._waching_machin ; 
@@ -463,19 +502,20 @@ class Monitoring(object):
 											log = log_time();
 											print(log+"Consumed Power : {} | remaining Power : {} \n".format(self._consumed_power,self._remaining_power)); 
 											self.print_running_devices(self._devices_planner) ; 
+											self.write_log(device_name,device['power_demande']);
 
-						self.update_remaining_time(self._devices_planner);
-						self.device_control(self._devices_planner) ;
-						self.removed_from_planning_control(self._devices_planner)
+						#self.update_remaining_time(self._devices_planner);
+						#self.device_control(self._devices_planner) ;
+						#self.removed_from_planning_control(self._devices_planner)
 
-					self.update_remaining_time(self._devices_planner);
-					self.device_control(self._devices_planner) ;
-					self.removed_from_planning_control(self._devices_planner)
+					#self.update_remaining_time(self._devices_planner);
+					#self.device_control(self._devices_planner) ;
+					#self.removed_from_planning_control(self._devices_planner)
 
 
 			self.update_remaining_time(self._devices_planner);
 			self.device_control(self._devices_planner) ;
-			self.removed_from_planning_control(self._devices_planner)
+			#self.removed_from_planning_control(self._devices_planner)
 
 			        		
 

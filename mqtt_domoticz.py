@@ -17,11 +17,7 @@ prise_on  = {"command": "switchlight", "idx": 44, "switchcmd": "On" }
 prise_off = {"command": "switchlight", "idx": 44, "switchcmd": "Off" }
 
 
-auto_mode_idx = 6 ; 
-waching_machin_idx =  39; 
-water_heating_idx = 14 ; 
-home_heating_idx = 13 ; 
-pool_heating_idx = 40 ;
+
 
 jsPrise_1_on  = json.dumps(prise_on)
 jsPrise_1_off = json.dumps(prise_off)
