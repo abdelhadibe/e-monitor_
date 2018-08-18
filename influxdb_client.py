@@ -39,7 +39,7 @@ def write_to_db(value1, value2,value3):
     dt = datetime.datetime.utcnow().isoformat();
     json_body = [
         {
-            "measurement": "test3",
+            "measurement": "test5",
             "tags": {},
             "time": dt,
             "fields": {
@@ -61,7 +61,7 @@ def calu_w(x):
 
 
 client = InfluxDBClient('localhost', 8086, 'root', 'root', 'first_example')
-#client.create_database('first_example')
+client.create_database('first_example')
 
 
 #print calu_w(500)
@@ -77,13 +77,18 @@ print "a: "+str(a )
 print "b: "+str(b)
 print "f: "+str(f) ; 
 print sigma
-i= -21 ; 
-while (i<=21):
+i= -900 ; 
+a = -0.004320988 ;
+print a 
+
+while (i<=900):
 
     f1= random.randint(1, 80)
     f2= random.randint(1, 80)
-    w = calu_w(i)*4000;
+    w= a*i*i+3500
+    w = random.uniform(0,w)
     write_to_db(f1, f2, w);
     publishTo_system(w)
-    i = i + 0.1 ;
-    time.sleep(0.1)
+    i = i + 1 ;
+    time.sleep(1.0)
+    

@@ -168,7 +168,7 @@ class EnergyMeter(object):
 			print ("Energy = {} \n".format(self._total_active_energy_production));
 			print("------------------------------------------------\n")
 
-			time.sleep(4);
+			time.sleep(10);
 
 def main():
 	totalEnergy_meter = EnergyMeter();

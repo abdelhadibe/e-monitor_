@@ -19,7 +19,7 @@ forecast_scenari_topic = "/e-monitor/scenario/forecast/" ;
 autoConsommation_scenari_topic = "/e-monitor/scenario/autoconsommation/";
 planning_topic = "/e-monitor/planning/";
 mode_topic  = "/e-monitor/mode/" ;
-consumption_topic = "/e-monitor/consumption/"; 
+energy_topic = "/e-monitor/energy/"; 
 swimPool_topic= "/e-monitor/swimpool/tmp/"
 
 def write_to_db(value):
@@ -74,14 +74,19 @@ class Monitoring(object):
     ## Scenarios 
     _autoConsommation_scenari = False ; 
     _weatherForcast_scenari = False ;
-    _waching_machin = 0 ; 
+    _waching_machin = 0 ;
+    _dryer = 0 ;  
     _home_heating = 0; 
     _pool_heating = 0 ; 
     _water_heating = 0; 
-    _waching_machine_planning = False , 
+    _pool_filtration = 0; 
+    ## Planning
+    _waching_machine_planning = False;
+    _dryer_planning = False ; 
     _home_heating_planning = False ; 
     _water_heating_plannig = False ; 
     _pool_heating_planning = False ; 
+    _pool_filtration_planning = False ;
     _devices_planner = 0; 
     _consumed_power = 0 ;
     _remaining_power = 0 ; 
@@ -92,7 +97,7 @@ class Monitoring(object):
     	dt = datetime.datetime.utcnow().isoformat();
     	json_body = [
     		{
-    			"measurement": "test3",
+    			"measurement": "test5",
     			"tags": {},
     			"time": dt,
     			"fields": {
@@ -219,6 +224,8 @@ class Monitoring(object):
     		self._home_heating_planning = payload['home_heating']; 
     		self._water_heating_plannig = payload['water_heating']; 
     		self._pool_heating_planning = payload['pool_heating']; 
+    		self._pool_filtration_planning = payload['pool_filtration'];
+    		self._dryer_planning = payload['dryer'];  
 
     		if (self._waching_machine_planning == "True"):
     			self._waching_machin['in_planning'] = "True" ; 
@@ -247,16 +254,34 @@ class Monitoring(object):
     		else : 
     			self._pool_heating['in_planning'] = "False" ;
     			self._pool_heating['removed_from_planning'] = "True" ; 
+    		
+    		if(self._pool_filtration_planning== "True"):
+    			self._pool_filtration['in_planning'] = "True" ;
+    			self._pool_filtration['removed_from_planning'] = "False" ; 
+    		else : 
+    			self._pool_filtration['in_planning'] = "False" ;
+    			self._pool_filtration['removed_from_planning'] = "True" ; 
+    		
+    		if(self._dryer_planning== "True"):
+    			self._dryer['in_planning'] = "True" ;
+    			self._dryer['removed_from_planning'] = "False" ; 
+    		else : 
+    			self._dryer['in_planning'] = "False" ;
+    			self._dryer['removed_from_planning'] = "True" ; 
 
     		print "Waching_machin : {} \n".format(self._waching_machin['in_planning']) 
     		print "Home_heating : {} \n".format(self._home_heating['in_planning'])
     		print "Water_heating : {} \n".format(self._water_heating['in_planning'])
     		print "Pool_heating : {} \n".format(self._pool_heating['in_planning'])
+    		print "Pool_filtration : {} \n".format(self._pool_filtration['in_planning'])
+    		print "dryer : {} \n".format(self._dryer['in_planning'])
 
     		self._devices_planner['waching_machin'] = self._waching_machin ; 
     		self._devices_planner['home_heating'] = self._home_heating ; 
     		self._devices_planner['water_heating'] = self._water_heating ; 
     		self._devices_planner['pool_heating'] = self._pool_heating ; 
+    		self._devices_planner['dryer'] = self._dryer ;
+    		self._devices_planner['pool_filtration'] = self._pool_filtration ;
 
     		#print self._devices_planner ; 
 
@@ -354,8 +379,8 @@ class Monitoring(object):
         except Exception as ex : 
             print(log+"error loading json frame in OnMsg_comsumption\n"); 
         else:
-            self._general_consum = payload['gle_consum'] ; 
-            self._photoVol_prodution = payload['pv_produc'] ; 
+            self._general_consum = payload['consumption'] ; 
+            self._photoVol_prodution = payload['production'] ; 
 
             print (log+"OnMsg consumption {} \n".format(self._photoVol_prodution)); 
     
@@ -421,7 +446,7 @@ class Monitoring(object):
         self._mqttClient.message_callback_add(weather_topic, self.onMsg_weather);
         self._mqttClient.message_callback_add(mode_topic, self.OnMsg_mode) ; 
         self._mqttClient.message_callback_add(swimPool_topic,self.OnMsg_swimPool) ; 
-        self._mqttClient.message_callback_add(consumption_topic, self.OnMsg_consumption);
+        self._mqttClient.message_callback_add(energy_topic, self.OnMsg_consumption);
         self._mqttClient.message_callback_add(autoConsommation_scenari_topic,self.OnMsg_autoconsommation) ;
         self._mqttClient.message_callback_add(planning_topic,self.OnMsg_devicePlanning) ;  
 
@@ -431,16 +456,20 @@ class Monitoring(object):
         self._mqttClient.subscribe("/e-monitor/#");
 
         # Home device initialisation 
-        self._waching_machin = self.homeDevice_update("waching_machin","False","",90,1,2000);
-        self._home_heating = self.homeDevice_update("home_heating","False","",30,1,2000);
-        self._water_heating = self.homeDevice_update("water_heating","False","",30,1,1500);
-        self._pool_heating = self.homeDevice_update("pool_heating","False","",30,1,2500);
+        self._waching_machin = self.homeDevice_update("waching_machin","False","",9,1,2000);
+        self._home_heating = self.homeDevice_update("home_heating","False","",3,1,2000);
+        self._water_heating = self.homeDevice_update("water_heating","False","",3,1,1500);
+        self._pool_heating = self.homeDevice_update("pool_heating","False","",3,1,2500);
+        self._dryer = self.homeDevice_update("dryer","False","",3,1,2500);
+        self._pool_filtration = self.homeDevice_update("pool_filtration","False","",3,1,2500);
 
         # Planner Initialisation ; 
         self._devices_planner['waching_machin'] = self._waching_machin ; 
         self._devices_planner['home_heating'] = self._home_heating ; 
         self._devices_planner['water_heating'] = self._water_heating; 
         self._devices_planner['pool_heating'] = self._pool_heating ; 
+        self._devices_planner['dryer'] = self._dryer ; 
+        self._devices_planner['pool_filtration'] = self._pool_filtration ; 
 
         #Domoticz Initilisation 
         self.sendSwitch_cmd(auto_mode_idx,"Off");
@@ -448,12 +477,15 @@ class Monitoring(object):
         self.sendSwitch_cmd(water_heating_idx,"Off");
         self.sendSwitch_cmd(home_heating_idx,"Off");
         self.sendSwitch_cmd(pool_heating_idx,"Off");
+        self.sendSwitch_cmd(pool_filtration_idx,"Off");
+        self.sendSwitch_cmd(dryer_idx,"Off");
 
         #Device State ; 
         self._device_state['waching_machin'] = "Off"; 
         self._device_state['water_heating'] = "Off"; 
         self._device_state['home_heating'] = "Off"; 
         self._device_state['pool_heating'] = "Off";
+
 
 
 

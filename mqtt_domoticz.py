@@ -114,7 +114,21 @@ class mqtt_domoticz(object):
 				#Send Planning
 				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 					 
 			
+			elif(payload['idx'] == pool_filtration_idx) : 
+				if(payload['nvalue']== 1):
+					self._jsframe_planning['pool_filtration'] = "True" ; 
+				else:
+					self._jsframe_planning['pool_filtration'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 			
 
+			elif(payload['idx'] == dryer_idx) : 
+				if(payload['nvalue']== 1):
+					self._jsframe_planning['dryer'] = "True" ; 
+				else:
+					self._jsframe_planning['dryer'] = "False" ; 
+				#Send Planning
+				self._mqttc.publish(planning_topic,json.dumps(self._jsframe_planning,ensure_ascii=False)); 			
 
 
 
@@ -131,10 +145,12 @@ class mqtt_domoticz(object):
 		
 		# Plannig initialisation ; 
 		self._jsframe_planning = dict() ; 
-		self._jsframe_planning['waching_machin'] = "True" ; 
-		self._jsframe_planning['water_heating'] = "True" ;
-		self._jsframe_planning['pool_heating'] = "True" ; 
-		self._jsframe_planning['home_heating'] = "True" ;
+		self._jsframe_planning['waching_machin'] = "False" ; 
+		self._jsframe_planning['water_heating'] = "False" ;
+		self._jsframe_planning['pool_heating'] = "False" ; 
+		self._jsframe_planning['home_heating'] = "False" ;
+		self._jsframe_planning['pool_filtration'] = "False" ;
+		self._jsframe_planning['dryer'] = "False" ;
 		
 
 	def runMqqt_domoritcz(self):

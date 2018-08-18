@@ -14,6 +14,13 @@ Wheath_ext_today = "/e-monitor/ext/today/" # max min actual , dt ,
 Wheath_ext_tomor = "/e-monitor/ext/tomor/" 
 
 #create Mqtt client 
+tmp_today_idx = 17 ; 
+humidity_today_idx = 82; 
+clouds_now_idx = 28 ; 
+tmp_tomorrow_idx = 20 ; 
+humidity_tomorrow_idx = 83; 
+clouds_tomorrow_idx = 27 ;
+
 
 client = mqtt.Client()
 client.connect("localhost",1883,60)
@@ -78,35 +85,32 @@ def getForcast(url):
 
 			jsToday =json.dumps(todaysForcast);
 			#jsTomor =json.dumps(tomorrForcast);
-			tmp_swim = json.dumps({"tmp":166}) ; 
-			client.publish("/e-monitor/swimpool/tmp/",tmp_swim) ;
-			client.publish(Wheath_ext_today,jsToday);
+			#client.publish(Wheath_ext_today,jsToday);
 			#client.publish(Wheath_ext_tomor,jsTomor);
 
 
-			tmp_today        	= { "idx" : 17, "nvalue" : 0, "svalue" :str(tmp) }
-			tmp_max_today    	= { "idx" : 18, "nvalue" : 0, "svalue" :str(tmp_max)}
-			tmp_min_today    	= { "idx" : 21, "nvalue" : 0, "svalue" :str(tmp_min) }
-			tmp_max_tomorrow    = { "idx" : 14, "nvalue" : 0, "svalue" :str(tmp_max_1) }
-			tmp_min_tomorrow    = { "idx" : 20, "nvalue" : 0, "svalue" :str(tmp_min_1) }
-			humidity_today      = { "idx" : 22, "nvalue" : humidity,   "svalue" : humidityStatus(humidity) }
-			humidity_tomorrow   = { "idx" : 24, "nvalue" : humidity_1, "svalue" : humidityStatus(humidity_1) }
+			tmp_today        	= { "idx" : tmp_today_idx, "nvalue" : 0, "svalue" :str(tmp) }
+			tmp_tomorrow        = { "idx" : tmp_tomorrow_idx, "nvalue" : 0, "svalue" :str(tmp_1) }
+			#tmp_max_today    	= { "idx" : 18, "nvalue" : 0, "svalue" :str(tmp_max)}
+			#tmp_min_today    	= { "idx" : 21, "nvalue" : 0, "svalue" :str(tmp_min) }
+			#tmp_max_tomorrow    = { "idx" : 14, "nvalue" : 0, "svalue" :str(tmp_max_1) }
+			#tmp_min_tomorrow    = { "idx" : 20, "nvalue" : 0, "svalue" :str(tmp_min_1) }
+			humidity_today      = { "idx" : humidity_today_idx, "nvalue" : humidity,   "svalue" : humidityStatus(humidity) }
+			humidity_tomorrow   = { "idx" : humidity_tomorrow_idx, "nvalue" : humidity_1, "svalue" : humidityStatus(humidity_1) }
 			DHT				 	= { "idx" : 16, "nvalue" : 100, "svalue" : "3"}
 			tmp_hum_today       = { "idx" : 26, "nvalue" : 0, "svalue" :str(tmp)+";"+str(humidity)+";"+humidityStatus(humidity)}
 			#cloudsDz			= { "idx" : 28, "nvalue" : 0, "svalue" :weather + " : " +str(clouds)+"%" }
-			cloudsDz			= { "idx" : 28, "nvalue" : 0, "svalue" :clouds }
+			clouds_now			= { "idx" : clouds_now_idx, "nvalue" : 0, "svalue" :str(clouds) }
+			clouds_tomorrow		= { "idx" : clouds_tomorrow_idx, "nvalue" : 0, "svalue" :str(clouds_1) }
 
 
 			data_out_0 = json.dumps(tmp_today)
-			data_out_1 = json.dumps(tmp_max_today)
-			data_out_2 = json.dumps(tmp_min_today)
-			data_out_3 = json.dumps(tmp_max_tomorrow)
-			data_out_4 = json.dumps(tmp_min_tomorrow)
-			data_out_5 = json.dumps(humidity_today)
-			data_out_6 = json.dumps(humidity_tomorrow)
-			data_out_7 = json.dumps(DHT)
-			data_out_8 = json.dumps(tmp_hum_today)
-			data_out_9 = json.dumps(cloudsDz)
+			data_out_1 = json.dumps(tmp_tomorrow)
+			data_out_2 = json.dumps(humidity_today)
+			data_out_3 = json.dumps(humidity_tomorrow)
+			data_out_4 = json.dumps(clouds_now)
+			data_out_5 = json.dumps(clouds_tomorrow)
+
 
 
 			publishToDomotiz(domoticz_topic,data_out_0)
@@ -115,10 +119,7 @@ def getForcast(url):
 			publishToDomotiz(domoticz_topic,data_out_3)
 			publishToDomotiz(domoticz_topic,data_out_4)
 			publishToDomotiz(domoticz_topic,data_out_5)
-			publishToDomotiz(domoticz_topic,data_out_6)
-			publishToDomotiz(domoticz_topic,data_out_7)
-			publishToDomotiz(domoticz_topic,data_out_8)
-			publishToDomotiz(domoticz_topic,data_out_9)
+			
 
 
 
@@ -143,7 +144,7 @@ def getForcast(url):
 			print("Type de journee : "+weather_1)
 			print("Clouds : {} %".format(clouds_1))
 			print("Heure fin de previstion : {} \n".format(dt_1))
-			time.sleep(4) ; 
+			time.sleep(600) ; 
 
 
 def startForcast(url): 
